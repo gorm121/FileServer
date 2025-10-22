@@ -1,0 +1,3 @@
+admin:admin
+hello:hello
+hi:hi
