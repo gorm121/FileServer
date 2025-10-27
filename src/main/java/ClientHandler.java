@@ -3,6 +3,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 class ClientHandler implements Runnable {
@@ -122,8 +124,7 @@ class ClientHandler implements Runnable {
 
     private void handleUpload(String[] parts) {
         if (!checkAuth()) return;
-        // TODO: логика загрузки файла
-        out.println("UPLOAD_RECEIVED");
+
     }
 
     private void handleDownload(String[] parts) {
@@ -146,11 +147,24 @@ class ClientHandler implements Runnable {
 
     private void handleSendTo(String[] parts) {
         if (!checkAuth()) return;
-        handleListUsers();
-        out.println("SEND_TO_RECEIVED");
+        String recipient = parts[1];
+        String filename = parts[2];
+        String from = parts[4];
+        byte[] bytes = parts[3].getBytes();
+        String str = ("FROM_" + from + "_TO_" + recipient + "_FILE_" +filename);
+        Path path = Path.of("/data/received_files/" + str);
+        System.out.println(recipient);
+        System.out.println(parts[3]);
+
+        try {
+            Files.createFile(path);
+            Files.write(path,bytes);
+            out.println("SEND_TO_RECEIVED");
+        } catch (IOException e) {
+            System.out.println("Не удалось создать файл");
+        }
     }
 
-    // Вспомогательный метод для проверки авторизации
     private boolean checkAuth() {
         if (!authenticated) {
             out.println("ERROR: Требуется авторизация");
