@@ -1,8 +1,8 @@
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 class ClientHandler implements Runnable {
@@ -17,6 +17,8 @@ class ClientHandler implements Runnable {
         this.clientSocket = clientSocket;
     }
 
+
+    @Override
     public void run() {
         try {
             in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
@@ -41,23 +43,25 @@ class ClientHandler implements Runnable {
 
     private void handleCommand(String command) {
 
-        String[] parts = command.split(":");
-        String action = parts[0].toUpperCase();
+        try {
+            String[] parts = command.split(":");
+            String action = parts[0].toUpperCase();
 
-        switch (action) {
+            switch (action) {
 
-            case "LOGIN" -> handleLogin(parts);
-            case "REGISTER" -> handleRegister(parts);
+                case "LOGIN" -> handleLogin(parts);
+                case "REGISTER" -> handleRegister(parts);
 
-            case "LIST_USERS" -> handleListUsers();
-            case "UPLOAD" -> handleUpload(parts);
-            case "DOWNLOAD" -> handleDownload(parts);
-            case "LIST_FILES" -> handleListFiles();
-            case "DELETE" -> handleDelete(parts);
-            case "SEND_TO" -> handleSendTo(parts);
+                case "LIST_USERS" -> handleListUsers();
+                case "LIST_FILES" -> handleListFiles();
+                case "SEND_TO" -> handleSendTo(parts);
 
-            default -> out.println("ERROR: Неизвестная команда: " + action);
+                default -> out.println("ERROR: Неизвестная команда: " + action);
+            }
+        } catch (NullPointerException e) {
+            running = false;
         }
+
     }
     private void handleLogin(String[] parts) {
         if (!Database.isAuthenticate(parts[1])) {
@@ -120,37 +124,62 @@ class ClientHandler implements Runnable {
         out.println(response);
     }
 
-    private void handleUpload(String[] parts) {
-        if (!checkAuth()) return;
-        // TODO: логика загрузки файла
-        out.println("UPLOAD_RECEIVED");
-    }
 
-    private void handleDownload(String[] parts) {
-        if (!checkAuth()) return;
-        // TODO: логика скачивания файла
-        out.println("DOWNLOAD_RECEIVED");
-    }
 
     private void handleListFiles() {
         if (!checkAuth()) return;
-        // TODO: список файлов пользователя
-        out.println("LIST_FILES_RECEIVED");
-    }
+        String path = "./data/received_files/" + currentUser;
+        File dir = new File("./data/received_files/" + currentUser);
+        StringBuilder response = new StringBuilder("DATA:");
+        for ( File file : dir.listFiles() ){
+            if (file.isFile()) {
+                try {
+                    String[] parts = file.getName().split("_");
 
-    private void handleDelete(String[] parts) {
-        if (!checkAuth()) return;
-        // TODO: удаление файла
-        out.println("DELETE_RECEIVED");
+                    response.append(parts[1]).append("-")
+                            .append(parts[5]).append("-")
+                            .append(Files.readAllLines(Path.of(file.getPath())))
+                            .append(":");
+                    System.out.println(response);
+                } catch (IOException ignored) {}
+            }
+        }
+        out.println("LIST_FILES_RECEIVED:");
+        out.println(response);
     }
 
     private void handleSendTo(String[] parts) {
         if (!checkAuth()) return;
-        handleListUsers();
-        out.println("SEND_TO_RECEIVED");
+        String recipient = parts[1];
+        String filename = parts[2];
+        String from = parts[4];
+        byte[] bytes = parts[3].getBytes();
+        String str = ("FROM_" + from + "_TO_" + recipient + "_FILE_" + filename);
+
+        Path directory = Path.of("./data/received_files/").resolve(recipient);
+        if (!Files.exists(directory)) {
+            try {
+                Files.createDirectories(directory);
+            } catch (IOException e) {
+                System.out.println("Не удалось создать директорию: " + e.getMessage());
+                return;
+            }
+        }
+
+        Path path = directory.resolve(str);
+
+        try {
+            if (!Files.exists(path)) {
+                Files.createFile(path);
+            }
+            Files.write(path, bytes);
+            out.println("SEND_TO_RECEIVED");
+        } catch (IOException e) {
+            System.out.println("Не удалось создать/записать файл: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
-    // Вспомогательный метод для проверки авторизации
     private boolean checkAuth() {
         if (!authenticated) {
             out.println("ERROR: Требуется авторизация");
