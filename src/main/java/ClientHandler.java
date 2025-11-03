@@ -55,7 +55,7 @@ class ClientHandler implements Runnable {
                 case "LIST_USERS" -> handleListUsers();
                 case "LIST_FILES" -> handleListFiles();
                 case "SEND_TO" -> handleSendTo(parts);
-                case "LOGOUT" -> {authenticated = false;}
+                case "LOGOUT" -> handleLogout();
                 default -> out.println("ERROR: Неизвестная команда: " + action);
             }
         } catch (NullPointerException e) {
@@ -83,6 +83,7 @@ class ClientHandler implements Runnable {
             authenticated = true;
             out.println("AUTH_SUCCESS");
             System.out.println("Пользователь " + username + " авторизовался");
+            ServerLogger.writeUserLog("Пользователь " + username + " авторизовался");
         } else {
             out.println("AUTH_FAILED");
         }
@@ -107,9 +108,16 @@ class ClientHandler implements Runnable {
             authenticated = true;
             out.println("REGISTER_SUCCESS");
             System.out.println("Зарегистрирован новый пользователь: " + username);
+            ServerLogger.writeUserLog("Зарегистрирован новый пользователь: " + username);
         } else {
             out.println("REGISTER_FAILED");
         }
+    }
+
+    private void handleLogout(){
+        authenticated = false;
+        System.out.println("Пользователь " + currentUser + " вышел из аккаунта");
+        ServerLogger.writeUserLog("Пользователь " + currentUser + " вышел из аккаунта");
     }
 
     private void handleListUsers() {
@@ -130,22 +138,29 @@ class ClientHandler implements Runnable {
         if (!checkAuth()) return;
         String path = "./data/received_files/" + currentUser;
         File dir = new File("./data/received_files/" + currentUser);
-        StringBuilder response = new StringBuilder("DATA:");
-        for ( File file : dir.listFiles() ){
-            if (file.isFile()) {
-                try {
-                    String[] parts = file.getName().split("_");
+        StringBuilder response = new StringBuilder("LIST_FILES_RECEIVED:");
+        try {
+            for ( File file : dir.listFiles() ){
+                if (file.isFile()) {
+                    try {
+                        String[] parts = file.getName().split("_");
 
-                    response.append(parts[1]).append("-")
-                            .append(parts[5]).append("-")
-                            .append(Files.readAllLines(Path.of(file.getPath())))
-                            .append(":");
-                    System.out.println(response);
-                } catch (IOException ignored) {}
+                        response.append(parts[1]).append("-")
+                                .append(parts[5]).append("-")
+                                .append(Files.readAllLines(Path.of(file.getPath())))
+                                .append(":");
+                        System.out.println(response);
+                    } catch (IOException ignored) {}
+                }
             }
+        }catch (Exception e) {
+            out.println("EMPTY");
+            out.println("");
+            return;
         }
-        out.println("LIST_FILES_RECEIVED:");
+
         out.println(response);
+        ServerLogger.writeFileLog(currentUser + " получил файлы");
         try {
             String str = in.readLine();
             if (str.startsWith("DELETE")) deleteFiles(str);
@@ -188,6 +203,7 @@ class ClientHandler implements Runnable {
             }
             Files.write(path, bytes);
             out.println("SEND_TO_RECEIVED");
+            ServerLogger.writeFileLog("Отправлен файл " + filename + " от " + from + ", пользователю " + recipient);
         } catch (IOException e) {
             System.out.println("Не удалось создать/записать файл: " + e.getMessage());
             e.printStackTrace();
