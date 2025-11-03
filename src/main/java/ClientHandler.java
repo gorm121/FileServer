@@ -55,7 +55,7 @@ class ClientHandler implements Runnable {
                 case "LIST_USERS" -> handleListUsers();
                 case "LIST_FILES" -> handleListFiles();
                 case "SEND_TO" -> handleSendTo(parts);
-
+                case "LOGOUT" -> {authenticated = false;}
                 default -> out.println("ERROR: Неизвестная команда: " + action);
             }
         } catch (NullPointerException e) {
@@ -146,6 +146,20 @@ class ClientHandler implements Runnable {
         }
         out.println("LIST_FILES_RECEIVED:");
         out.println(response);
+        try {
+            String str = in.readLine();
+            if (str.startsWith("DELETE")) deleteFiles(str);
+        } catch (IOException e) {
+            System.out.println("Что то пошло не так: " + e.getMessage());
+        }
+
+    }
+
+    private void deleteFiles(String str){
+        File dir = new File("./data/received_files/" + currentUser);
+        for ( File file : dir.listFiles() ){
+            if (file.delete()) System.out.println("да");;
+        }
     }
 
     private void handleSendTo(String[] parts) {
