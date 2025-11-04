@@ -2,7 +2,9 @@ import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 class ClientHandler implements Runnable {
@@ -34,7 +36,8 @@ class ClientHandler implements Runnable {
             try {
                 clientSocket.close();
             } catch (IOException e) {
-                System.out.println("Произошла ошибка: " + e.getMessage());
+                System.out.println(currentUser + " отключился");
+                ServerLogger.writeUserLog(": "+ currentUser + " отключился");
             }
         }
     }
@@ -64,16 +67,10 @@ class ClientHandler implements Runnable {
 
     }
     private void handleLogin(String[] parts) {
-        if (!Database.isAuthenticate(parts[1])) {
-            out.println("ERROR: Произошла ошибка");
-            return;
-        }
-
-        if (parts.length != 3) {
+        if (!Database.isAuthenticate(parts[1]) || parts.length != 3) {
             out.println("AUTH_FAILED");
             return;
         }
-
 
         String username = parts[1];
         String password = parts[2];
@@ -83,19 +80,14 @@ class ClientHandler implements Runnable {
             authenticated = true;
             out.println("AUTH_SUCCESS");
             System.out.println("Пользователь " + username + " авторизовался");
-            ServerLogger.writeUserLog("Пользователь " + username + " авторизовался");
+            ServerLogger.writeUserLog(" Пользователь " + username + " авторизовался\n");
         } else {
             out.println("AUTH_FAILED");
         }
     }
 
     private void handleRegister(String[] parts) {
-        if (Database.isAuthenticate(parts[1])) {
-            out.println("ERROR: Произошла ошибка");
-            return;
-        }
-
-        if (parts.length != 3) {
+        if (Database.isAuthenticate(parts[1]) || parts.length != 3) {
             out.println("REGISTER_FAILED");
             return;
         }
@@ -108,7 +100,7 @@ class ClientHandler implements Runnable {
             authenticated = true;
             out.println("REGISTER_SUCCESS");
             System.out.println("Зарегистрирован новый пользователь: " + username);
-            ServerLogger.writeUserLog("Зарегистрирован новый пользователь: " + username);
+            ServerLogger.writeUserLog(" Зарегистрирован новый пользователь: " + username + "\n");
         } else {
             out.println("REGISTER_FAILED");
         }
@@ -117,7 +109,7 @@ class ClientHandler implements Runnable {
     private void handleLogout(){
         authenticated = false;
         System.out.println("Пользователь " + currentUser + " вышел из аккаунта");
-        ServerLogger.writeUserLog("Пользователь " + currentUser + " вышел из аккаунта");
+        ServerLogger.writeUserLog(" Пользователь " + currentUser + " вышел из аккаунта\n");
     }
 
     private void handleListUsers() {
@@ -155,22 +147,22 @@ class ClientHandler implements Runnable {
             }
         }catch (Exception e) {
             out.println("EMPTY");
-            out.println("");
+            System.out.println("Файлов нет для " + currentUser);
             return;
         }
 
         out.println(response);
-        ServerLogger.writeFileLog(currentUser + " получил файлы");
+        ServerLogger.writeFileLog(currentUser + " получил файлы\n");
         try {
             String str = in.readLine();
-            if (str.startsWith("DELETE")) deleteFiles(str);
+            if (str.startsWith("DELETE")) deleteFiles();
         } catch (IOException e) {
             System.out.println("Что то пошло не так: " + e.getMessage());
         }
 
     }
 
-    private void deleteFiles(String str){
+    private void deleteFiles(){
         File dir = new File("./data/received_files/" + currentUser);
         for ( File file : dir.listFiles() ){
             if (file.delete()) System.out.println("да");;
@@ -182,6 +174,7 @@ class ClientHandler implements Runnable {
         String recipient = parts[1];
         String filename = parts[2];
         String from = parts[4];
+
         byte[] bytes = parts[3].getBytes();
         String str = ("FROM_" + from + "_TO_" + recipient + "_FILE_" + filename);
 
@@ -203,7 +196,7 @@ class ClientHandler implements Runnable {
             }
             Files.write(path, bytes);
             out.println("SEND_TO_RECEIVED");
-            ServerLogger.writeFileLog("Отправлен файл " + filename + " от " + from + ", пользователю " + recipient);
+            ServerLogger.writeFileLog(" Отправлен файл " + filename + " от " + from + ", пользователю " + recipient +"\n");
         } catch (IOException e) {
             System.out.println("Не удалось создать/записать файл: " + e.getMessage());
             e.printStackTrace();

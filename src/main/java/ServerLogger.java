@@ -3,6 +3,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class ServerLogger {
 
@@ -10,7 +14,10 @@ public class ServerLogger {
     private static Path pathUsers = Paths.get("./data/logs/userLogs.txt");
 
     public static void writeFileLog(String log){
+        String str = "[" + LocalDateTime.now()
+                        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + "]" + log;
         try {
+
             Path parentDir = pathFiles.getParent();
             Files.createDirectories(parentDir);
 
@@ -18,15 +25,15 @@ public class ServerLogger {
                 Files.createFile(pathFiles);
             }
 
-            Files.write(pathFiles,log.getBytes());
+            Files.write(pathFiles, str.getBytes(), StandardOpenOption.APPEND);
         }catch (IOException e) {
             System.out.println("Произошла ошибка с файлом: " + e.getMessage());
         }
     }
 
     public static void writeUserLog(String log){
-
-        try {
+        String str = "[" + LocalDateTime.now()
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + "]" + log;        try {
             Path parentDir = pathUsers.getParent();
             Files.createDirectories(parentDir);
 
@@ -34,7 +41,7 @@ public class ServerLogger {
                 Files.createFile(pathUsers);
             }
 
-            Files.write(pathUsers,log.getBytes());
+            Files.write(pathUsers,str.getBytes(),StandardOpenOption.APPEND);
         }catch (IOException e) {
             System.out.println("Произошла ошибка с файлом: " + e.getMessage());
         }
