@@ -10,12 +10,12 @@ import java.time.format.DateTimeFormatter;
 
 public class ServerLogger {
 
-    private static Path pathFiles = Paths.get("./data/logs/fileLogs.txt");
-    private static Path pathUsers = Paths.get("./data/logs/userLogs.txt");
+    private static Path pathFiles = Paths.get("data"+ File.separator +"logs"+ File.separator +"fileLogs.txt");
+    private static Path pathUsers = Paths.get("data"+ File.separator +"logs"+ File.separator +"userLogs.txt");
 
     public static void writeFileLog(String log){
         String str = "[" + LocalDateTime.now()
-                        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + "]" + log;
+                        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + "] " + log;
         try {
 
             Path parentDir = pathFiles.getParent();
@@ -33,7 +33,8 @@ public class ServerLogger {
 
     public static void writeUserLog(String log){
         String str = "[" + LocalDateTime.now()
-                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + "]" + log;        try {
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + "] " + log;
+        try {
             Path parentDir = pathUsers.getParent();
             Files.createDirectories(parentDir);
 

@@ -2,10 +2,8 @@ import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 class ClientHandler implements Runnable {
     private final Socket clientSocket;
@@ -113,7 +111,6 @@ class ClientHandler implements Runnable {
     }
 
     private void handleListUsers() {
-        if (!checkAuth()) return;
 
         List<String> users = Database.getAllUsers();
         StringBuilder response = new StringBuilder("USERS_LIST:");
@@ -127,12 +124,11 @@ class ClientHandler implements Runnable {
 
 
     private void handleListFiles() {
-        if (!checkAuth()) return;
-        String path = "./data/received_files/" + currentUser;
-        File dir = new File("./data/received_files/" + currentUser);
+
+        File dir = new File("data" + File.separator  + "received_files" + File.separator + currentUser);
         StringBuilder response = new StringBuilder("LIST_FILES_RECEIVED:");
         try {
-            for ( File file : dir.listFiles() ){
+            for ( File file : Objects.requireNonNull(dir.listFiles())){
                 if (file.isFile()) {
                     try {
                         String[] parts = file.getName().split("_");
@@ -163,22 +159,24 @@ class ClientHandler implements Runnable {
     }
 
     private void deleteFiles(){
-        File dir = new File("./data/received_files/" + currentUser);
-        for ( File file : dir.listFiles() ){
-            if (file.delete()) System.out.println("да");;
+        File dir = new File("data" + File.separator  + "received_files" + File.separator + currentUser);
+        for ( File file : Objects.requireNonNull(dir.listFiles())){
+            if (file.delete()) System.out.println("да");
         }
     }
 
     private void handleSendTo(String[] parts) {
-        if (!checkAuth()) return;
         String recipient = parts[1];
         String filename = parts[2];
         String from = parts[4];
-
+        if (!Database.getAllUsers().contains(recipient)){
+            out.println("BAD_SEND_TO");
+            return;
+        }
         byte[] bytes = parts[3].getBytes();
         String str = ("FROM_" + from + "_TO_" + recipient + "_FILE_" + filename);
 
-        Path directory = Path.of("./data/received_files/").resolve(recipient);
+        Path directory = Path.of("data" + File.separator  + "received_files" + File.separator).resolve(recipient);
         if (!Files.exists(directory)) {
             try {
                 Files.createDirectories(directory);
@@ -199,15 +197,7 @@ class ClientHandler implements Runnable {
             ServerLogger.writeFileLog(" Отправлен файл " + filename + " от " + from + ", пользователю " + recipient +"\n");
         } catch (IOException e) {
             System.out.println("Не удалось создать/записать файл: " + e.getMessage());
-            e.printStackTrace();
         }
     }
 
-    private boolean checkAuth() {
-        if (!authenticated) {
-            out.println("ERROR: Требуется авторизация");
-            return false;
-        }
-        return true;
-    }
 }

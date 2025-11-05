@@ -1,3 +1,4 @@
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -8,15 +9,26 @@ import java.util.List;
 import java.util.Map;
 
 public class Database {
-    private static final String USERS_FILE = "data/users.txt";
-    private static final String USERS_DATA_FILE = "data/files.txt";
+    private static final String USERS_FILE = "data"+ File.separator +"users.txt";
+    private static final String USERS_DATA_FILE = "data"+ File.separator +"files.txt";
     private static Map<String, String> users = new HashMap<>();
-    private static List<FileRecord> fileRecords = new ArrayList<>();
 
     public static void loadData(){
+        createPath();
         loadUsersData();
-        loadUsersFiles();
     }
+
+    private static void createPath(){
+        try {Files.createDirectories(Path.of("data"+ File.separator +"logs"));}
+        catch (IOException e) {System.out.println("Произошла ошибка при создании (возможно она уже создана): " + e.getMessage());}
+        try {Files.createDirectories(Path.of("data"+ File.separator +"received_files"));}
+        catch (IOException e) {System.out.println("Произошла ошибка при создании (возможно она уже создана): " + e.getMessage());}
+        try {Files.createFile(Path.of(USERS_DATA_FILE));}
+        catch (IOException e) {System.out.println("Произошла ошибка при создании (возможно она уже создана): " + e.getMessage());}
+        try {Files.createFile(Path.of(USERS_FILE));}
+        catch (IOException e) {System.out.println("Произошла ошибка при создании (возможно она уже создана): " + e.getMessage());}
+    }
+
 
     private static void loadUsersData(){
         try {
@@ -32,17 +44,6 @@ public class Database {
         }
     }
 
-    private static void loadUsersFiles(){
-        try {
-            List<String> lines = Files.readAllLines(Path.of(USERS_DATA_FILE));
-            for (String line : lines){
-                String[] parts = line.split(":",3);
-                if (parts.length == 3) fileRecords.add(new FileRecord(parts[0],parts[1]));
-            }
-        } catch (IOException e) {
-            System.out.println("Отсутствуют файлы пользователей");
-        }
-    }
 
     public static boolean isAuthenticate(String username){
         if (users.isEmpty()) return false;
