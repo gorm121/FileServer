@@ -35,7 +35,7 @@ class ClientHandler implements Runnable {
                 clientSocket.close();
             } catch (IOException e) {
                 System.out.println(currentUser + " отключился");
-                ServerLogger.writeUserLog(": "+ currentUser + " отключился");
+                ServerLogger.writeUserLog(currentUser + " отключился");
             }
         }
     }
@@ -78,7 +78,7 @@ class ClientHandler implements Runnable {
             authenticated = true;
             out.println("AUTH_SUCCESS");
             System.out.println("Пользователь " + username + " авторизовался");
-            ServerLogger.writeUserLog(" Пользователь " + username + " авторизовался\n");
+            ServerLogger.writeUserLog("Пользователь " + username + " авторизовался\n");
         } else {
             out.println("AUTH_FAILED");
         }
@@ -98,7 +98,7 @@ class ClientHandler implements Runnable {
             authenticated = true;
             out.println("REGISTER_SUCCESS");
             System.out.println("Зарегистрирован новый пользователь: " + username);
-            ServerLogger.writeUserLog(" Зарегистрирован новый пользователь: " + username + "\n");
+            ServerLogger.writeUserLog("Зарегистрирован новый пользователь: " + username + "\n");
         } else {
             out.println("REGISTER_FAILED");
         }
@@ -107,7 +107,7 @@ class ClientHandler implements Runnable {
     private void handleLogout(){
         authenticated = false;
         System.out.println("Пользователь " + currentUser + " вышел из аккаунта");
-        ServerLogger.writeUserLog(" Пользователь " + currentUser + " вышел из аккаунта\n");
+        ServerLogger.writeUserLog("Пользователь " + currentUser + " вышел из аккаунта\n");
     }
 
     private void handleListUsers() {
@@ -161,7 +161,7 @@ class ClientHandler implements Runnable {
     private void deleteFiles(){
         File dir = new File("data" + File.separator  + "received_files" + File.separator + currentUser);
         for ( File file : Objects.requireNonNull(dir.listFiles())){
-            if (file.delete()) System.out.println("да");
+            if (file.delete()) ServerLogger.writeFileLog("Файлы для " + currentUser + " удалены");
         }
     }
 
