@@ -11,7 +11,7 @@ class ClientHandler implements Runnable {
     private PrintWriter out;
     boolean running = true;
     private String currentUser;
-    private boolean authenticated = false;
+
 
     ClientHandler(Socket clientSocket) {
         this.clientSocket = clientSocket;
@@ -26,7 +26,7 @@ class ClientHandler implements Runnable {
 
 
             while (running){
-                handleCommand(in.readLine());
+                handleCommand(readFromClient());
             }
         } catch (IOException e) {
             System.out.println("Произошла ошибка: " + e.getMessage());
@@ -57,7 +57,7 @@ class ClientHandler implements Runnable {
                 case "LIST_FILES" -> handleListFiles();
                 case "SEND_TO" -> handleSendTo(parts);
                 case "LOGOUT" -> handleLogout();
-                default -> out.println("ERROR: Неизвестная команда: " + action);
+                default -> writeToClient("ERROR: Неизвестная команда: " + action);
             }
         } catch (NullPointerException e) {
             running = false;
@@ -66,7 +66,7 @@ class ClientHandler implements Runnable {
     }
     private void handleLogin(String[] parts) {
         if (!Database.isAuthenticate(parts[1]) || parts.length != 3) {
-            out.println("AUTH_FAILED");
+            writeToClient("AUTH_FAILED");
             return;
         }
 
@@ -75,18 +75,19 @@ class ClientHandler implements Runnable {
 
         if (Database.login(username, password)) {
             currentUser = username;
-            authenticated = true;
-            out.println("AUTH_SUCCESS");
+
+            writeToClient("AUTH_SUCCESS");
+
             System.out.println("Пользователь " + username + " авторизовался");
             ServerLogger.writeUserLog("Пользователь " + username + " авторизовался\n");
         } else {
-            out.println("AUTH_FAILED");
+            writeToClient("AUTH_FAILED");
         }
     }
 
     private void handleRegister(String[] parts) {
         if (Database.isAuthenticate(parts[1]) || parts.length != 3) {
-            out.println("REGISTER_FAILED");
+            writeToClient("REGISTER_FAILED");
             return;
         }
 
@@ -95,17 +96,15 @@ class ClientHandler implements Runnable {
 
         if (Database.register(username, password)) {
             currentUser = username;
-            authenticated = true;
-            out.println("REGISTER_SUCCESS");
+            writeToClient("REGISTER_SUCCESS");
             System.out.println("Зарегистрирован новый пользователь: " + username);
             ServerLogger.writeUserLog("Зарегистрирован новый пользователь: " + username + "\n");
         } else {
-            out.println("REGISTER_FAILED");
+            writeToClient("REGISTER_FAILED");
         }
     }
 
     private void handleLogout(){
-        authenticated = false;
         System.out.println("Пользователь " + currentUser + " вышел из аккаунта");
         ServerLogger.writeUserLog("Пользователь " + currentUser + " вышел из аккаунта\n");
     }
@@ -118,7 +117,7 @@ class ClientHandler implements Runnable {
             String marker = users.get(i).equals(currentUser) ? " (Вы)" : "";
             response.append(i + 1).append(".").append(users.get(i)).append(marker).append("|");
         }
-        out.println(response);
+        writeToClient(String.valueOf(response));
     }
 
 
@@ -142,15 +141,15 @@ class ClientHandler implements Runnable {
                 }
             }
         }catch (Exception e) {
-            out.println("EMPTY");
+            writeToClient("EMPTY");
             System.out.println("Файлов нет для " + currentUser);
             return;
         }
 
-        out.println(response);
+        writeToClient(String.valueOf(response));
         ServerLogger.writeFileLog(currentUser + " получил файлы\n");
         try {
-            String str = in.readLine();
+            String str = readFromClient();
             if (str.startsWith("DELETE")) deleteFiles();
         } catch (IOException e) {
             System.out.println("Что то пошло не так: " + e.getMessage());
@@ -170,7 +169,7 @@ class ClientHandler implements Runnable {
         String filename = parts[2];
         String from = parts[4];
         if (!Database.getAllUsers().contains(recipient)){
-            out.println("BAD_SEND_TO");
+            writeToClient("BAD_SEND_TO");
             return;
         }
         byte[] bytes = parts[3].getBytes();
@@ -193,11 +192,54 @@ class ClientHandler implements Runnable {
                 Files.createFile(path);
             }
             Files.write(path, bytes);
-            out.println("SEND_TO_RECEIVED");
+            writeToClient("SEND_TO_RECEIVED");
             ServerLogger.writeFileLog(" Отправлен файл " + filename + " от " + from + ", пользователю " + recipient +"\n");
         } catch (IOException e) {
             System.out.println("Не удалось создать/записать файл: " + e.getMessage());
         }
+    }
+
+
+
+    private void writeToClient(String message) {
+        try {
+            out.println(message);
+        } catch (Exception e) {
+            if (isConnectionError(e)) {
+                System.out.println("Потеряно соединение с сервером");
+                try {
+                    clientSocket.close();
+                } catch (IOException ex) {
+                    System.out.println("Произошла ошибка при закрытии сокета: " + e.getMessage());
+                }
+
+            }
+        }
+    }
+
+
+    private String readFromClient() throws IOException {
+        try {
+            return in.readLine();
+        } catch (IOException e) {
+            if (isConnectionError(e)) {
+                System.out.println("Потеряно соединение с сервером");
+                clientSocket.close();
+            }
+            throw e;
+        }
+    }
+
+    private boolean isConnectionError(Exception e) {
+        String message = e.getMessage();
+        return message != null && (
+                message.contains("Connection reset") ||
+                        message.contains("Connection refused") ||
+                        message.contains("closed") ||
+                        message.contains("broken pipe") ||
+                        message.contains("reset by peer") ||
+                        message.contains("Software caused connection abort")
+        );
     }
 
 }
