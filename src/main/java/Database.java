@@ -11,7 +11,7 @@ import java.util.Map;
 public class Database {
     private static final String USERS_FILE = "data"+ File.separator +"users.txt";
     private static final String USERS_DATA_FILE = "data"+ File.separator +"files.txt";
-    private static Map<String, String> users = new HashMap<>();
+    private static final Map<String, String> users = new HashMap<>();
 
     public static void loadData(){
         createPath();
@@ -32,6 +32,7 @@ public class Database {
 
     private static void loadUsersData(){
         try {
+            users.clear();
             List<String> lines = Files.readAllLines(Path.of(USERS_FILE));
             for (String line : lines){
                 String[] parts = line.split(":",2);
@@ -77,13 +78,9 @@ public class Database {
         } catch (IOException ignored){ return false;}
     }
 
-    public static void deleteFile(String username){
-
-    }
-
-
 
     public static List<String> getAllUsers() {
-        return new ArrayList<>(users.keySet()); // Все логины
+        loadUsersData();
+        return new ArrayList<>(users.keySet());
     }
 }

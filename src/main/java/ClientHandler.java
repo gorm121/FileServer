@@ -2,8 +2,10 @@ import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Objects;
+import java.util.logging.Logger;
 
 class ClientHandler implements Runnable {
     private final Socket clientSocket;
@@ -11,7 +13,7 @@ class ClientHandler implements Runnable {
     private PrintWriter out;
     boolean running = true;
     private String currentUser;
-
+    private static final Logger logger = Logger.getLogger(ClientHandler.class.getName());
 
     ClientHandler(Socket clientSocket) {
         this.clientSocket = clientSocket;
@@ -29,13 +31,12 @@ class ClientHandler implements Runnable {
                 handleCommand(readFromClient());
             }
         } catch (IOException e) {
-            System.out.println("Произошла ошибка: " + e.getMessage());
+            logger.info(currentUser + " отключился");
         }finally {
             try {
                 clientSocket.close();
             } catch (IOException e) {
-                System.out.println(currentUser + " отключился");
-                ServerLogger.writeUserLog(currentUser + " отключился");
+                logger.info(currentUser + " отключился");
             }
         }
     }
@@ -78,8 +79,7 @@ class ClientHandler implements Runnable {
 
             writeToClient("AUTH_SUCCESS");
 
-            System.out.println("Пользователь " + username + " авторизовался");
-            ServerLogger.writeUserLog("Пользователь " + username + " авторизовался\n");
+            logger.info("Пользователь " + username + " авторизовался\n");
         } else {
             writeToClient("AUTH_FAILED");
         }
@@ -97,20 +97,17 @@ class ClientHandler implements Runnable {
         if (Database.register(username, password)) {
             currentUser = username;
             writeToClient("REGISTER_SUCCESS");
-            System.out.println("Зарегистрирован новый пользователь: " + username);
-            ServerLogger.writeUserLog("Зарегистрирован новый пользователь: " + username + "\n");
+            logger.info("Зарегистрирован новый пользователь: " + username + "\n");
         } else {
             writeToClient("REGISTER_FAILED");
         }
     }
 
     private void handleLogout(){
-        System.out.println("Пользователь " + currentUser + " вышел из аккаунта");
-        ServerLogger.writeUserLog("Пользователь " + currentUser + " вышел из аккаунта\n");
+        logger.info("Пользователь " + currentUser + " вышел из аккаунта\n");
     }
 
     private void handleListUsers() {
-
         List<String> users = Database.getAllUsers();
         StringBuilder response = new StringBuilder("USERS_LIST:");
         for (int i = 0; i < users.size(); i++) {
@@ -124,35 +121,55 @@ class ClientHandler implements Runnable {
 
     private void handleListFiles() {
 
-        File dir = new File("data" + File.separator  + "received_files" + File.separator + currentUser);
+        Path dir = Paths.get("data" + File.separator  + "received_files" + File.separator + currentUser);
         StringBuilder response = new StringBuilder("LIST_FILES_RECEIVED:");
+
+        if (!Files.exists(dir) || !Files.isDirectory(dir)) {
+            writeToClient("EMPTY");
+            logger.info("Файлов нет для " + currentUser);
+            return;
+        }
+
+        File[] files = dir.toFile().listFiles();
+
+        if (files == null || files.length == 0) {
+            writeToClient("EMPTY");
+            logger.info("Файлов нет для " + currentUser);
+            return;
+        }
+
         try {
-            for ( File file : Objects.requireNonNull(dir.listFiles())){
+            for (File file : files) {
                 if (file.isFile()) {
                     try {
                         String[] parts = file.getName().split("_");
-
                         response.append(parts[1]).append("-")
                                 .append(parts[5]).append("-")
                                 .append(Files.readAllLines(Path.of(file.getPath())))
                                 .append(":");
-                        System.out.println(response);
-                    } catch (IOException ignored) {}
+                    } catch (IOException ignored) {
+                        logger.warning("Ошибка чтения файла: " + file.getName());
+                    }
                 }
             }
-        }catch (Exception e) {
-            writeToClient("EMPTY");
-            System.out.println("Файлов нет для " + currentUser);
-            return;
-        }
 
-        writeToClient(String.valueOf(response));
-        ServerLogger.writeFileLog(currentUser + " получил файлы\n");
-        try {
-            String str = readFromClient();
-            if (str.startsWith("DELETE")) deleteFiles();
-        } catch (IOException e) {
-            System.out.println("Что то пошло не так: " + e.getMessage());
+            if (response.toString().equals("LIST_FILES_RECEIVED:")) {
+                writeToClient("EMPTY");
+                logger.info("Нет доступных файлов для чтения у " + currentUser);
+                return;
+            }
+
+            writeToClient(response.toString());
+            logger.info(currentUser + " получил файлы\n");
+            try {
+                String str = readFromClient();
+                if (str.startsWith("DELETE")) deleteFiles();
+            } catch (IOException e) {
+                logger.warning("Что то пошло не так: " + e.getMessage());
+            }
+        } catch (Exception e) {
+            writeToClient("EMPTY");
+            logger.warning("Ошибка при получении списка файлов для " + currentUser + ": " + e.getMessage());
         }
 
     }
@@ -160,7 +177,7 @@ class ClientHandler implements Runnable {
     private void deleteFiles(){
         File dir = new File("data" + File.separator  + "received_files" + File.separator + currentUser);
         for ( File file : Objects.requireNonNull(dir.listFiles())){
-            if (file.delete()) ServerLogger.writeFileLog("Файлы для " + currentUser + " удалены");
+            if (file.delete()) logger.info("Файлы для " + currentUser + " удалены");
         }
     }
 
@@ -180,7 +197,7 @@ class ClientHandler implements Runnable {
             try {
                 Files.createDirectories(directory);
             } catch (IOException e) {
-                System.out.println("Не удалось создать директорию: " + e.getMessage());
+                logger.warning("Не удалось создать директорию: " + e.getMessage());
                 return;
             }
         }
@@ -193,9 +210,9 @@ class ClientHandler implements Runnable {
             }
             Files.write(path, bytes);
             writeToClient("SEND_TO_RECEIVED");
-            ServerLogger.writeFileLog(" Отправлен файл " + filename + " от " + from + ", пользователю " + recipient +"\n");
+            logger.info(" Отправлен файл " + filename + " от " + from + ", пользователю " + recipient +"\n");
         } catch (IOException e) {
-            System.out.println("Не удалось создать/записать файл: " + e.getMessage());
+            logger.warning("Не удалось создать/записать файл: " + e.getMessage());
         }
     }
 
@@ -206,11 +223,11 @@ class ClientHandler implements Runnable {
             out.println(message);
         } catch (Exception e) {
             if (isConnectionError(e)) {
-                System.out.println("Потеряно соединение с сервером");
+                logger.info("Потеряно соединение с клиентом");
                 try {
                     clientSocket.close();
                 } catch (IOException ex) {
-                    System.out.println("Произошла ошибка при закрытии сокета: " + e.getMessage());
+                    logger.warning("Произошла ошибка при закрытии сокета: " + e.getMessage());
                 }
 
             }
@@ -223,7 +240,7 @@ class ClientHandler implements Runnable {
             return in.readLine();
         } catch (IOException e) {
             if (isConnectionError(e)) {
-                System.out.println("Потеряно соединение с сервером");
+                logger.info("Не удалось установить соединение с клиентом");
                 clientSocket.close();
             }
             throw e;
