@@ -1,49 +1,95 @@
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.util.logging.*;
 
 public class ServerLogger {
+    private static Logger logger;
+    private static boolean isInitialized = false;
 
-    private static Path pathFiles = Paths.get("data"+ File.separator +"logs"+ File.separator +"fileLogs.txt");
-    private static Path pathUsers = Paths.get("data"+ File.separator +"logs"+ File.separator +"userLogs.txt");
 
-    public static void writeFileLog(String log){
-        String str = "[" + LocalDateTime.now()
-                        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + "] " + log;
-        try {
+    public static void initialize(String choice) {
+        if (isInitialized) return;
 
-            Path parentDir = pathFiles.getParent();
-            Files.createDirectories(parentDir);
-
-            if (!Files.exists(pathFiles)) {
-                Files.createFile(pathFiles);
+        Logger rootLogger = Logger.getLogger("");
+        for (Handler handler : rootLogger.getHandlers()) {
+            if (handler instanceof ConsoleHandler) {
+                rootLogger.removeHandler(handler);
             }
+        }
 
-            Files.write(pathFiles, str.getBytes(), StandardOpenOption.APPEND);
-        }catch (IOException e) {
-            System.out.println("Произошла ошибка с файлом: " + e.getMessage());
+        switch (choice) {
+            case "1":
+                disableLogging();
+                System.out.println("Логирование отключено");
+                break;
+            case "2":
+                setupWarningLogging();
+                System.out.println("Логирование WARNING включено");
+                break;
+            case "3":
+                setupInfoLogging();
+                System.out.println("Логирование INFO + WARNING включено");
+                break;
+            default:
+                System.out.println("Неверный выбор, логирование отключено");
+                disableLogging();
+        }
+        isInitialized = true;
+    }
+
+    public static void info(String message) {
+        if (logger != null) {
+            logger.info(message);
         }
     }
 
-    public static void writeUserLog(String log){
-        String str = "[" + LocalDateTime.now()
-                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + "] " + log;
-        try {
-            Path parentDir = pathUsers.getParent();
-            Files.createDirectories(parentDir);
-
-            if (!Files.exists(pathUsers)) {
-                Files.createFile(pathUsers);
-            }
-
-            Files.write(pathUsers,str.getBytes(),StandardOpenOption.APPEND);
-        }catch (IOException e) {
-            System.out.println("Произошла ошибка с файлом: " + e.getMessage());
+    public static void warning(String message) {
+        if (logger != null) {
+            logger.warning(message);
         }
     }
+
+    public static void severe(String message) {
+        if (logger != null) {
+            logger.severe(message);
+        }
+    }
+
+    private static void disableLogging() {
+        logger = Logger.getLogger("ServerLogger");
+        logger.setLevel(Level.OFF);
+        for (Handler handler : logger.getHandlers()) {
+            logger.removeHandler(handler);
+        }
+    }
+
+    private static void setupWarningLogging() {
+        try {
+            FileHandler fileHandler = new FileHandler("data/logs/server.log", 0, 1, true);            fileHandler.setFormatter(new SimpleFormatter());
+            fileHandler.setLevel(Level.WARNING);
+
+            logger = Logger.getLogger("ServerLogger");
+            logger.setLevel(Level.WARNING);
+
+            logger.addHandler(fileHandler);
+
+        } catch (IOException e) {
+            System.out.println("Ошибка настройки логирования: " + e.getMessage());
+        }
+    }
+
+    private static void setupInfoLogging() {
+        try {
+            FileHandler fileHandler = new FileHandler("data/logs/server.log", 0, 1, true);            fileHandler.setFormatter(new SimpleFormatter());
+            fileHandler.setLevel(Level.INFO);
+
+            logger = Logger.getLogger("ServerLogger");
+            logger.setLevel(Level.INFO);
+
+            logger.addHandler(fileHandler);
+
+        } catch (IOException e) {
+            System.out.println("Ошибка настройки логирования: " + e.getMessage());
+        }
+    }
+
 }

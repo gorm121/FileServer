@@ -5,7 +5,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Objects;
-import java.util.logging.Logger;
+
 
 class ClientHandler implements Runnable {
     private final Socket clientSocket;
@@ -13,7 +13,6 @@ class ClientHandler implements Runnable {
     private PrintWriter out;
     boolean running = true;
     private String currentUser;
-    private static final Logger logger = Logger.getLogger(ClientHandler.class.getName());
 
     ClientHandler(Socket clientSocket) {
         this.clientSocket = clientSocket;
@@ -31,12 +30,12 @@ class ClientHandler implements Runnable {
                 handleCommand(readFromClient());
             }
         } catch (IOException e) {
-            logger.info(currentUser + " отключился");
+            ServerLogger.info(currentUser + " отключился");
         }finally {
             try {
                 clientSocket.close();
             } catch (IOException e) {
-                logger.info(currentUser + " отключился");
+                ServerLogger.info(currentUser + " отключился");
             }
         }
     }
@@ -79,7 +78,7 @@ class ClientHandler implements Runnable {
 
             writeToClient("AUTH_SUCCESS");
 
-            logger.info("Пользователь " + username + " авторизовался\n");
+            ServerLogger.info("Пользователь " + username + " авторизовался\n");
         } else {
             writeToClient("AUTH_FAILED");
         }
@@ -97,14 +96,14 @@ class ClientHandler implements Runnable {
         if (Database.register(username, password)) {
             currentUser = username;
             writeToClient("REGISTER_SUCCESS");
-            logger.info("Зарегистрирован новый пользователь: " + username + "\n");
+            ServerLogger.info("Зарегистрирован новый пользователь: " + username + "\n");
         } else {
             writeToClient("REGISTER_FAILED");
         }
     }
 
     private void handleLogout(){
-        logger.info("Пользователь " + currentUser + " вышел из аккаунта\n");
+        ServerLogger.info("Пользователь " + currentUser + " вышел из аккаунта\n");
     }
 
     private void handleListUsers() {
@@ -126,7 +125,7 @@ class ClientHandler implements Runnable {
 
         if (!Files.exists(dir) || !Files.isDirectory(dir)) {
             writeToClient("EMPTY");
-            logger.info("Файлов нет для " + currentUser);
+            ServerLogger.info("Файлов нет для " + currentUser);
             return;
         }
 
@@ -134,7 +133,7 @@ class ClientHandler implements Runnable {
 
         if (files == null || files.length == 0) {
             writeToClient("EMPTY");
-            logger.info("Файлов нет для " + currentUser);
+            ServerLogger.info("Файлов нет для " + currentUser);
             return;
         }
 
@@ -148,28 +147,28 @@ class ClientHandler implements Runnable {
                                 .append(Files.readAllLines(Path.of(file.getPath())))
                                 .append(":");
                     } catch (IOException ignored) {
-                        logger.warning("Ошибка чтения файла: " + file.getName());
+                        ServerLogger.warning("Ошибка чтения файла: " + file.getName());
                     }
                 }
             }
 
             if (response.toString().equals("LIST_FILES_RECEIVED:")) {
                 writeToClient("EMPTY");
-                logger.info("Нет доступных файлов для чтения у " + currentUser);
+                ServerLogger.info("Нет доступных файлов для чтения у " + currentUser);
                 return;
             }
 
             writeToClient(response.toString());
-            logger.info(currentUser + " получил файлы\n");
+            ServerLogger.info(currentUser + " получил файлы\n");
             try {
                 String str = readFromClient();
                 if (str.startsWith("DELETE")) deleteFiles();
             } catch (IOException e) {
-                logger.warning("Что то пошло не так: " + e.getMessage());
+                ServerLogger.warning("Что то пошло не так: " + e.getMessage());
             }
         } catch (Exception e) {
             writeToClient("EMPTY");
-            logger.warning("Ошибка при получении списка файлов для " + currentUser + ": " + e.getMessage());
+            ServerLogger.warning("Ошибка при получении списка файлов для " + currentUser + ": " + e.getMessage());
         }
 
     }
@@ -177,19 +176,24 @@ class ClientHandler implements Runnable {
     private void deleteFiles(){
         File dir = new File("data" + File.separator  + "received_files" + File.separator + currentUser);
         for ( File file : Objects.requireNonNull(dir.listFiles())){
-            if (file.delete()) logger.info("Файлы для " + currentUser + " удалены");
+            if (file.delete()) ServerLogger.info("Файлы для " + currentUser + " удалены");
         }
     }
 
     private void handleSendTo(String[] parts) {
-        String recipient = parts[1];
-        String filename = parts[2];
-        String from = parts[4];
-        if (!Database.getAllUsers().contains(recipient)){
+        String recipient;
+        if (parts.length != 5 || !Database.getAllUsers().contains(parts[1])){
             writeToClient("BAD_SEND_TO");
             return;
         }
-        byte[] bytes = parts[3].getBytes();
+        recipient = parts[1];
+
+
+        String filename = parts[2];
+        String from = parts[4];
+        String fileContent = parts[3];
+        fileContent = fileContent.replace("\\n", "\n").replace("\\r", "\r");
+        byte[] bytes = fileContent.getBytes();
         String str = ("FROM_" + from + "_TO_" + recipient + "_FILE_" + filename);
 
         Path directory = Path.of("data" + File.separator  + "received_files" + File.separator).resolve(recipient);
@@ -197,7 +201,7 @@ class ClientHandler implements Runnable {
             try {
                 Files.createDirectories(directory);
             } catch (IOException e) {
-                logger.warning("Не удалось создать директорию: " + e.getMessage());
+                ServerLogger.warning("Не удалось создать директорию: " + e.getMessage());
                 return;
             }
         }
@@ -210,9 +214,9 @@ class ClientHandler implements Runnable {
             }
             Files.write(path, bytes);
             writeToClient("SEND_TO_RECEIVED");
-            logger.info(" Отправлен файл " + filename + " от " + from + ", пользователю " + recipient +"\n");
+            ServerLogger.info(" Отправлен файл " + filename + " от " + from + ", пользователю " + recipient +"\n");
         } catch (IOException e) {
-            logger.warning("Не удалось создать/записать файл: " + e.getMessage());
+            ServerLogger.warning("Не удалось создать/записать файл: " + e.getMessage());
         }
     }
 
@@ -223,11 +227,11 @@ class ClientHandler implements Runnable {
             out.println(message);
         } catch (Exception e) {
             if (isConnectionError(e)) {
-                logger.info("Потеряно соединение с клиентом");
+                ServerLogger.info("Потеряно соединение с клиентом");
                 try {
                     clientSocket.close();
                 } catch (IOException ex) {
-                    logger.warning("Произошла ошибка при закрытии сокета: " + e.getMessage());
+                    ServerLogger.warning("Произошла ошибка при закрытии сокета: " + e.getMessage());
                 }
 
             }
@@ -240,7 +244,7 @@ class ClientHandler implements Runnable {
             return in.readLine();
         } catch (IOException e) {
             if (isConnectionError(e)) {
-                logger.info("Не удалось установить соединение с клиентом");
+                ServerLogger.info("Не удалось установить соединение с клиентом");
                 clientSocket.close();
             }
             throw e;

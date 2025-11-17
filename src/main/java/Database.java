@@ -2,6 +2,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -10,7 +11,6 @@ import java.util.Map;
 
 public class Database {
     private static final String USERS_FILE = "data"+ File.separator +"users.txt";
-    private static final String USERS_DATA_FILE = "data"+ File.separator +"files.txt";
     private static final Map<String, String> users = new HashMap<>();
 
     public static void loadData(){
@@ -22,8 +22,6 @@ public class Database {
         try {Files.createDirectories(Path.of("data"+ File.separator +"logs"));}
         catch (IOException e) {System.out.println("Произошла ошибка при создании (возможно она уже создана): " + e.getMessage());}
         try {Files.createDirectories(Path.of("data"+ File.separator +"received_files"));}
-        catch (IOException e) {System.out.println("Произошла ошибка при создании (возможно она уже создана): " + e.getMessage());}
-        try {Files.createFile(Path.of(USERS_DATA_FILE));}
         catch (IOException e) {System.out.println("Произошла ошибка при создании (возможно она уже создана): " + e.getMessage());}
         try {Files.createFile(Path.of(USERS_FILE));}
         catch (IOException e) {System.out.println("Произошла ошибка при создании (возможно она уже создана): " + e.getMessage());}
