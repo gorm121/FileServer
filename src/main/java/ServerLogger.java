@@ -9,12 +9,6 @@ public class ServerLogger {
     public static void initialize(String choice) {
         if (isInitialized) return;
 
-        Logger rootLogger = Logger.getLogger("");
-        for (Handler handler : rootLogger.getHandlers()) {
-            if (handler instanceof ConsoleHandler) {
-                rootLogger.removeHandler(handler);
-            }
-        }
 
         switch (choice) {
             case "1":

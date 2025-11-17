@@ -35,7 +35,7 @@ class ClientHandler implements Runnable {
             try {
                 clientSocket.close();
             } catch (IOException e) {
-                ServerLogger.info(currentUser + " отключился");
+                ServerLogger.info("сокет закрыт");
             }
         }
     }
@@ -180,9 +180,11 @@ class ClientHandler implements Runnable {
 
     private void deleteFiles(){
         File dir = new File("data" + File.separator  + "received_files" + File.separator + currentUser);
+        boolean del = false;
         for ( File file : Objects.requireNonNull(dir.listFiles())){
-            if (file.delete()) ServerLogger.info("Файлы для " + currentUser + " удалены");
+            if (file.delete()) del = true;
         }
+        if (del) ServerLogger.info("Файлы для " + currentUser + " удалены");
     }
 
     private void handleSendTo(String[] parts) {
