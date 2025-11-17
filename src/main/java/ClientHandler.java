@@ -142,9 +142,14 @@ class ClientHandler implements Runnable {
                 if (file.isFile()) {
                     try {
                         String[] parts = file.getName().split("_");
+                        String fileContent = Files.readString(Path.of(file.getPath()));
+
+                        fileContent = fileContent.replace("\n", "\\\\n")
+                                .replace("\r", "\\\\r");
+
                         response.append(parts[1]).append("-")
                                 .append(parts[5]).append("-")
-                                .append(Files.readAllLines(Path.of(file.getPath())))
+                                .append(fileContent)
                                 .append(":");
                     } catch (IOException ignored) {
                         ServerLogger.warning("Ошибка чтения файла: " + file.getName());
